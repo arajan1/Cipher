@@ -1,28 +1,52 @@
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.HashMap;
 
 public class Verifier {
 	
-	private HashMap<>
+	private HashMap<String, Double> ngrams;
+	private int L;
+	private double floor;
 
-	public Verifier () {
+	public Verifier (String ngramfile) {
         // load a file containing ngrams and counts, calculate log probabilities
-        self.ngrams = {}
-        for line in file(ngramfile):
-            key,count = line.split(sep) 
-            self.ngrams[key] = int(count)
-        self.L = len(key)
-        self.N = sum(self.ngrams.itervalues())
-        #calculate log probabilities
-        for key in self.ngrams.keys():
-            self.ngrams[key] = log10(float(self.ngrams[key])/self.N)
-        self.floor = log10(0.01/self.N)
+        ngrams = new HashMap<String, Double>();
+        try (BufferedReader br = new BufferedReader(new FileReader(ngramfile))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+            	String[] all = line.split(" ");
+            	String key = all[0];
+            	int count = Integer.parseInt(all[1]);
+                ngrams.put(key, (double) count);
+            }
+        } catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+        int N = 0;
+        for (double v: ngrams.values()) {
+        	N += v;
+        }
+        for (String k: ngrams.keySet()) {
+        	L = k.length();
+        	ngrams.put(k, Math.log10(ngrams.get(k)) / N);
+        }
+        // calculate log probabilities
+        floor = Math.log10(0.01/N);
 	}
 
-    def score(self,text):
-        ''' compute the score of text '''
-        score = 0
-        ngrams = self.ngrams.__getitem__
-        for i in xrange(len(text)-self.L+1):
-            if text[i:i+self.L] in self.ngrams: score += ngrams(text[i:i+self.L])
-            else: score += self.floor          
-        return score
+    double score(String text) {
+        // compute the score of text
+        int score = 0;
+        for (int i = 0; i < text.length() - L + 1; i++) {
+        	if (ngrams.containsKey(text.substring(i, i+L))) {
+        		score += ngrams.get(text.substring(i, i+L));
+        	}
+        	else {
+        		score += floor;
+        	}
+        }
+        return score;
+    }
 }
