@@ -10,7 +10,7 @@ public class Verifier {
 	private double floor;
 
 	public Verifier (String ngramfile) {
-        // load a file containing ngrams and counts, calculate log probabilities
+        // load a file containing n-grams and counts, calculate log probabilities
         ngrams = new HashMap<String, Double>();
         try (BufferedReader br = new BufferedReader(new FileReader(ngramfile))) {
             String line;
