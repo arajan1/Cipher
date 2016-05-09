@@ -17,6 +17,7 @@ public class Vigenere
 			char letter = key.charAt(ki);
 			
 			//consider spaces as char just before 'A'
+			c = c == ' ' ? A_LESS_1 : c;
 			letter = letter == ' ' ? A_LESS_1 : letter;
 			
 			//determine index and letter, append to cipher
