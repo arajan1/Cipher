@@ -8,8 +8,7 @@ public class Cryptanalysis {
 	static Verifier quadgrams = new Verifier("english_quadgrams.txt");
 	static ArrayList<String> permutations = new ArrayList<String>();
 	static TreeSet<Entry> initial, candidates;
-	static final int N = 10;
-	static final int SPACE_PUNISHMENT = 0;
+	static final int N = 1;
 	
 	static class Entry implements Comparable<Entry> {
 		
@@ -30,51 +29,24 @@ public class Cryptanalysis {
 		
 	}
 
-	private static void gen_permutations(String prefix, String str, int len) {
-	    if (prefix.length() == len) {
-	    	permutations.add(prefix);
-	    }
-	    else {
-	    	int n = str.length();
-	        for (int i = 0; i < n; i++)
-	        	gen_permutations(prefix + str.charAt(i), str.substring(0, i) + str.substring(i+1, n), len);
-	    }
-	}
-	
 	private static double getScore(String seg) {
 		double score = monograms.score(seg);
 		//double score = monograms.score(seg) + bigrams.score(seg) + trigrams.score(seg) + quadgrams.score(seg);
-		for(int j = 0; j < seg.length(); j++) {
-			if (seg.charAt(j) == ' ') score -= SPACE_PUNISHMENT;
-		}
 		return score;
 	}
 
 	@SuppressWarnings("unchecked")
 	public static String solve(String message){
-		gen_permutations("", " ABCDEFGHIJKLMNOPQRSTUVWXYZ", 2);
-		
 		String bestKey = "";
 		double bestScore = Double.NEGATIVE_INFINITY;
 		for(int len = 2; len <= Math.min(16, message.length()); len++) {
 			System.out.println("key length: " + len);
 			initial = new TreeSet<Entry>();
-			for(String k : permutations) {
-				String key = k + String.join("", Collections.nCopies(len - 2, " "));
-				//System.out.println(key);
-				String clear = Vigenere.decipher(message, key);
-				double score = 0;
-				for (int i = 0; i < clear.length() - 1; i += len) {
-					score += bigrams.score(clear.substring(i, i+2));
-				}
-				initial.add(new Entry(score, k));
-				//System.out.println(k + ":" + score);
-			}
-			//System.out.println("after perms initial size: " + initial.size());
+			initial.add(new Entry(0, ""));
 
 			candidates = new TreeSet<Entry>();
-			for(int i = 0; i < len - 2; i++){
-				System.out.println("Length: " + (i + 2));
+			for(int i = 0; i < len; i++){
+				System.out.println("Length: " + i);
 				Iterator<Entry> iterator = initial.descendingIterator();
 				System.out.println("initial size: " + initial.size());
 				for(int k = 0; k < N && iterator.hasNext(); k++){
@@ -89,9 +61,8 @@ public class Cryptanalysis {
 						boolean mark = false;
 						for(int j = 0; j < clear.length(); j += len) {
 							String seg = clear.substring(j, Math.min(j+key.length(), message.length()));
-							// If not English text skip.
+							// If not English text (two consecutive spaces) skip.
 							if (seg.contains("  ")) {
-								//System.out.println("skipping " + key);
 								mark = true;
 								break;
 							}
@@ -108,7 +79,6 @@ public class Cryptanalysis {
 				candidates.clear();
 			}
 			
-			//System.out.println("ending initial size: " + initial.size());
 			Iterator<Entry> iterator = initial.descendingIterator();
 			for(int k = 0; k < N && iterator.hasNext(); k++){
 				Entry cur = iterator.next();
@@ -119,7 +89,6 @@ public class Cryptanalysis {
 				}
 			}
 		}
-		System.out.println("best score is: " + bestScore);
 		return bestKey;
 	}
 	
@@ -129,16 +98,12 @@ public class Cryptanalysis {
 		while (sc.hasNextLine()) {
 			message += sc.nextLine();
 		}
-		//message = "I AM GOOD";
 		message = message.toUpperCase().replaceAll("[^A-Z ]", "").replaceAll("  ", " ");
 		//System.out.println(message);
-		message = Vigenere.encipher(message, "MOO");
+		message = Vigenere.encipher(message, "MOOSE BREEDER");
 		String sol = solve(message);
-		System.out.println("Best is " + sol);
+		System.out.println("Key guess: " + sol);
 		System.out.println(Vigenere.decipher(message, sol));
-		//System.out.println(Vigenere.decipher(message, "MOO"));
-		//System.out.println(bigrams.score("ATTACK AT DAWN"));
-		//System.out.println(bigrams.score("NS NBRM  MCHIM"));
 		sc.close();
 	}
 }
