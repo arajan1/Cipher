@@ -4,97 +4,141 @@ public class Cryptanalysis {
 	
 	static Verifier monograms = new Verifier("english_monograms.txt");
 	static Verifier bigrams = new Verifier("english_bigrams.txt");
+	static Verifier trigrams = new Verifier("english_trigrams.txt");
 	static Verifier quadgrams = new Verifier("english_quadgrams.txt");
-	static ArrayList<String> perm = new ArrayList<String>();
-	static TreeSet<Entry> ts = new TreeSet<Entry>();
-	static final int N = 100;
+	static ArrayList<String> permutations = new ArrayList<String>();
+	static TreeSet<Entry> initial, candidates;
+	static final int N = 10;
+	static final int SPACE_PUNISHMENT = 0;
 	
 	static class Entry implements Comparable<Entry> {
 		
 		double score;
 		String key;
 		
-		Entry(double score2, String k) {
-			score = score2;
+		Entry(double s, String k) {
+			score = s;
 			key = k;
 		}
 
 		@Override
 		public int compareTo(Entry o) {
-			// TODO Auto-generated method stub
-			return (int) (score - o.score);
+			if (score < o.score) return -1;
+			else if (score > o.score) return 1;
+			return 0;
 		}
 		
 	}
 
-	private static void permutation(String prefix, String str, int len) {
-	    int n = prefix.length();
-	    if (n == len) {
-	    	perm.add(prefix);
+	private static void gen_permutations(String prefix, String str, int len) {
+	    if (prefix.length() == len) {
+	    	permutations.add(prefix);
 	    }
 	    else {
+	    	int n = str.length();
 	        for (int i = 0; i < n; i++)
-	            permutation(prefix + str.charAt(i), str.substring(0, i) + str.substring(i+1, n), len);
+	        	gen_permutations(prefix + str.charAt(i), str.substring(0, i) + str.substring(i+1, n), len);
 	    }
 	}
+	
+	private static double getScore(String seg) {
+		double score = monograms.score(seg);
+		//double score = monograms.score(seg) + bigrams.score(seg) + trigrams.score(seg) + quadgrams.score(seg);
+		for(int j = 0; j < seg.length(); j++) {
+			if (seg.charAt(j) == ' ') score -= SPACE_PUNISHMENT;
+		}
+		return score;
+	}
 
+	@SuppressWarnings("unchecked")
 	public static String solve(String message){
-		String best = "";
-		double bscore = Double.MIN_VALUE;
-		permutation("", " ABCDEFGHIJKLMNOPQRSTUVWXYZ", 2);
+		gen_permutations("", " ABCDEFGHIJKLMNOPQRSTUVWXYZ", 2);
+		
+		String bestKey = "";
+		double bestScore = Double.NEGATIVE_INFINITY;
 		for(int len = 2; len <= Math.min(16, message.length()); len++) {
-			for(String k : perm) {
+			System.out.println("key length: " + len);
+			initial = new TreeSet<Entry>();
+			for(String k : permutations) {
 				String key = k + String.join("", Collections.nCopies(len - 2, " "));
+				//System.out.println(key);
 				String clear = Vigenere.decipher(message, key);
 				double score = 0;
-				for (int i=0;i<message.length();i+=len) {
+				for (int i = 0; i < clear.length() - 1; i += len) {
 					score += bigrams.score(clear.substring(i, i+2));
 				}
-				ts.add(new Entry(score, k));
+				initial.add(new Entry(score, k));
+				//System.out.println(k + ":" + score);
 			}
-			String cur = "";
+			//System.out.println("after perms initial size: " + initial.size());
+
+			candidates = new TreeSet<Entry>();
 			for(int i = 0; i < len - 2; i++){
-				double ms = Double.MIN_VALUE;
-				char mc = ' ';
-				for(int j=0;j<27;j++) {
-					String s = cur;
-					s += (char)Vigenere.ALPHABET[j];
-					for(int k=i+1;k<len;k++) s += " ";
-					String clear = Vigenere.decipher(message, s);
-					double v = 0;
-					for(int k = 0; k < message.length(); k += len) {
-						System.out.println("Clear: " +clear.substring(k, Math.min(k+i+1, message.length())));
-						//v += monograms.score(clear.substring(k, Math.min(k+i+1, message.length())));
-						v += quadgrams.score(clear.substring(k, Math.min(k+i, message.length())));
-					}
-					System.out.println(s + ":" + v);
-					if (v > ms) {
-						ms = v;
-						mc = Vigenere.ALPHABET[j];
+				System.out.println("Length: " + (i + 2));
+				Iterator<Entry> iterator = initial.descendingIterator();
+				System.out.println("initial size: " + initial.size());
+				for(int k = 0; k < N && iterator.hasNext(); k++){
+					Entry e = iterator.next();
+					//System.out.println("examining " + e.key);
+					for(int c = 0; c < Vigenere.ALPHABET.length; c++) {
+						String key = e.key + (char)Vigenere.ALPHABET[c];
+						String padded = key + String.join("", Collections.nCopies(len - key.length(), " "));
+						//System.out.println("Key: " + key);
+						String clear = Vigenere.decipher(message, padded);
+						double score = 0;
+						boolean mark = false;
+						for(int j = 0; j < clear.length(); j += len) {
+							String seg = clear.substring(j, Math.min(j+key.length(), message.length()));
+							// If not English text skip.
+							if (seg.contains("  ")) {
+								//System.out.println("skipping " + key);
+								mark = true;
+								break;
+							}
+							//System.out.println("Cleartext: " +clear.substring(j, Math.min(j+key.length(), message.length())));
+							score += getScore(seg);
+						}
+						if (mark) continue;
+						if (score < bestScore) continue;
+						candidates.add(new Entry(score, key));
+						//System.out.println(key + ":" + score);
 					}
 				}
-				cur += mc;
+				initial = (TreeSet<Entry>) candidates.clone();
+				candidates.clear();
 			}
-			double sc = 0;
-			//sc += monograms.score(Vigenere.decipher(message, cur));
-			sc += quadgrams.score(Vigenere.decipher(message, cur));
-			System.out.print(cur + " ");
-			System.out.print(Vigenere.decipher(message, cur) + " ");
-			System.out.println(sc);
-			if (sc > bscore) {
-				bscore = sc;
-				best = cur;
+			
+			//System.out.println("ending initial size: " + initial.size());
+			Iterator<Entry> iterator = initial.descendingIterator();
+			for(int k = 0; k < N && iterator.hasNext(); k++){
+				Entry cur = iterator.next();
+				System.out.println(cur.key + ":" + cur.score);
+				if (cur.score > bestScore) {
+					bestKey = cur.key;
+					bestScore = cur.score;
+				}
 			}
 		}
-		return best;
+		System.out.println("best score is: " + bestScore);
+		return bestKey;
 	}
+	
 	public static void main(String[] args){
+		String message = "";
 		Scanner sc = new Scanner(System.in);
-		//String message = sc.nextLine();
-		String message = Vigenere.encipher("ATTACK", "MOO");
-		//System.out.println("cor" +Vigenere.decipher(message, "MOOSE B"));
-		System.out.println(message);
-		System.out.println(solve(message));
+		while (sc.hasNextLine()) {
+			message += sc.nextLine();
+		}
+		//message = "I AM GOOD";
+		message = message.toUpperCase().replaceAll("[^A-Z ]", "").replaceAll("  ", " ");
+		//System.out.println(message);
+		message = Vigenere.encipher(message, "MOO");
+		String sol = solve(message);
+		System.out.println("Best is " + sol);
+		System.out.println(Vigenere.decipher(message, sol));
+		//System.out.println(Vigenere.decipher(message, "MOO"));
+		//System.out.println(bigrams.score("ATTACK AT DAWN"));
+		//System.out.println(bigrams.score("NS NBRM  MCHIM"));
 		sc.close();
 	}
 }

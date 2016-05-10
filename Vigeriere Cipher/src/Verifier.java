@@ -30,11 +30,9 @@ public class Verifier {
         	N += v;
             //System.out.println(v);
         }
-        System.out.println(N);
         for (String k: ngrams.keySet()) {
         	L = k.length();
-        	//System.out.println(" " + ngrams.get(k) + " " + N + " " + Math.log10(ngrams.get(k) / N));
-        	ngrams.put(k, Math.log10(ngrams.get(k)) / N);
+        	ngrams.put(k, Math.log10(ngrams.get(k) / N));
         }
         // calculate log probabilities
         floor = Math.log10(0.01/N);
@@ -43,11 +41,12 @@ public class Verifier {
     double score(String text) {
         // compute the score of text
         double score = 0;
-        System.out.println("scoring raw " + text);
+        //System.out.println("scoring raw " + text);
         text = text.replace(" ", "");
         for (int i = 0; i < text.length() - L + 1; i++) {
         	if (ngrams.containsKey(text.substring(i, i+L))) {
         		score += ngrams.get(text.substring(i, i+L));
+        		//System.out.println(text.substring(i, i+L) + ":" + ngrams.get(text.substring(i, i+L)));
         	}
         	else {
         		score += floor;
