@@ -8,7 +8,7 @@ public class Cryptanalysis {
 	static Verifier quadgrams = new Verifier("english_quadgrams.txt");
 	static ArrayList<String> permutations = new ArrayList<String>();
 	static final int MAX_LENGTH = 2048;
-	static TreeSet<Entry> initial, candidates;
+	static PriorityQueue<Entry> initial;
 	
 	static class Entry implements Comparable<Entry> {
 		
@@ -31,23 +31,32 @@ public class Cryptanalysis {
 
 	private static double getScore(String seg) {
 		double score = monograms.score(seg);
-		score = monograms.score(seg) + bigrams.score(seg) + trigrams.score(seg) + quadgrams.score(seg);
+		/*
+		if (seg.length() >= 4)
+			score = quadgrams.score(seg);
+		else if (seg.length() == 3)
+			score = trigrams.score(seg);
+		if (seg.length() >= 2)
+			score = bigrams.score(seg);
+		else
+			score = monograms.score(seg);
+		*/
 		return score;
 	}
 
-	@SuppressWarnings("unchecked")
 	public static Entry solve(String message){
 		Entry best = new Entry(Double.NEGATIVE_INFINITY, "");
+		initial = new PriorityQueue<Entry>(10, Collections.reverseOrder());
 		
 		for(int len = 2; len <= Math.min(16, message.length()); len++) {
-			System.out.println("Key length: " + len);
-			initial = new TreeSet<Entry>();
+			System.out.println("Trying key length: " + len);
 			initial.add(new Entry(0, ""));
 
-			candidates = new TreeSet<Entry>();
 			for(int i = 0; i < len; i++){
 				if (initial.isEmpty()) break;
-				Entry e = initial.last();
+				Entry e = initial.poll();
+				initial.clear();
+				
 				for(int c = 0; c < Vigenere.ALPHABET.length; c++) {
 					String key = e.key + Vigenere.ALPHABET[c];
 					String padded = key + String.join("", Collections.nCopies(len - key.length(), " "));
@@ -63,20 +72,21 @@ public class Cryptanalysis {
 						}
 						score += getScore(seg);
 					}
+					if (i == len - 1 && clear.contains("  ")) mark = true;
 					if (mark) continue;
+					//System.out.println(key + ":" + score);
 					if (score < best.score) continue;
-					candidates.add(new Entry(score, key));
+					initial.add(new Entry(score, key));
 				}
-				initial = (TreeSet<Entry>) candidates.clone();
-				candidates.clear();
 			}
 			
 			if (!initial.isEmpty()) {
-				Entry curBest = initial.last();
-				System.out.println(best.key + ":" + best.score);
+				Entry curBest = initial.poll();
 				if (curBest.score > best.score) {
+					System.out.println(curBest.key + ":" + curBest.score);
 					best = curBest;
 				}
+				initial.clear();
 			}
 		}
 		return best;
@@ -89,7 +99,8 @@ public class Cryptanalysis {
 			message += sc.nextLine();
 		}
 		message = message.toUpperCase().replaceAll("[^A-Z ]", "").replaceAll("  ", " ");
-		message = Vigenere.encipher(message, "MOOSE BREEDER");
+		//message = Vigenere.encipher(message, "NICKY");
+		//System.out.println(message);
 		Entry sol = solve(message);
 		System.out.println("Key guess: " + sol.key);
 		System.out.println(Vigenere.decipher(message, sol.key));
